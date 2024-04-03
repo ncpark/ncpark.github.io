@@ -89,7 +89,7 @@
   function wechatPay (data) {
     $.ajax({
       type: 'GET',
-      url: "http://pays.otcp.cn/park/pay",
+      url: "https://pays.otcp.cn/park/pay",
       data: data,
       contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
 			dataType: 'json',
@@ -133,7 +133,7 @@
     }
     $.ajax({
       type: 'GET',
-      url: "http://pays.otcp.cn/park/openGateOut",
+      url: "https://pays.otcp.cn/park/openGateOut",
       data: param,
       contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
 			dataType: 'json',
@@ -155,7 +155,7 @@
     }
     $.ajax({
       type: 'GET',
-      url: "http://pays.otcp.cn/park/tempPayInfo",
+      url: "https://pays.otcp.cn/park/tempPayInfo",
       data: param,
       contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
 			dataType: 'json',
