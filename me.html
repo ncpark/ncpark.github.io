@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>停车缴费</title>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1">
+  <link href="https://cdn.staticfile.org/weui/2.5.1/style/weui.min.css" rel="stylesheet">
+  <script src="https://res.wx.qq.com/open/js/jweixin-1.6.0.js"></script>
+
+  <style type="text/css">
+    body {
+      max-width: 40rem;
+      margin: 0 auto;
+    }
+
+    .weui-btn_primary {
+      background-color: #61C1BE;
+    }
+
+    .weui-form__control-area {
+      margin: 10px 0 30px;
+    }
+
+    .weui-notice {
+      width: 20px;
+      color: red;
+      font-size: 20px;
+      padding-top: 20%;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="page1">
+    <a href="javascript:" role="button" title="等待中" class="weui-btn weui-btn_primary weui-btn_loading" id="submit">
+      <span class="weui-primary-loading weui-primary-loading_transparent" id="submit_loading" style="display: none;">
+        <i class="weui-primary-loading__dot"></i>
+      </span>
+      开门</a>
+  </div>
+
+  <div role="alert" id="textToast" style="display: none;">
+    <div class="weui-mask_transparent"></div>
+    <div class="weui-toast weui-toast_text">
+      <p class="weui-toast__content" id="toast_text"></p>
+    </div>
+  </div>
+</body>
+
+<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+<script type="text/javascript" src="https://res.wx.qq.com/t/wx_fed/cdn_libs/res/weui/1.2.5/weui.min.js"></script>
+
+<script type="text/javascript">
+  var _result = {};
+  var _plateNumber = '赣A1BC53';
+  function showToast (msg) {
+    var $textToast = $('#textToast');
+    if ($textToast.css('display') != 'none') return;
+    $("#toast_text").text(msg);
+    $textToast.fadeIn(100);
+    setTimeout(function () {
+      $textToast.fadeOut(100);
+    }, 2000);
+  };
+
+  function wechatPay (data) {
+    $.ajax({
+      type: 'GET',
+      url: "https://pays.otcp.cn/park/pay",
+      data: data,
+      contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+			dataType: 'json',
+      success: function (res) {
+        $("#submit_loading").css("display", 'none');
+        if(res.code == 0) {
+          var payUrl = res.data
+          window.location.href = payUrl;
+        } else {
+          showToast(res.msg);
+        }
+      },
+      error: function (error) {
+        $("#submit_loading").css("display", 'none');
+      }
+    })
+  };
+
+  function freeout (plate, payToken) {
+    var param = {
+      'parkId': '16494',
+      'laneId': '19569',
+      'plate': plate,
+      'payToken': payToken
+    }
+    $.ajax({
+      type: 'GET',
+      url: "https://pays.otcp.cn/park/openGateOut",
+      data: param,
+      contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+			dataType: 'json',
+      success: function (res) {
+        showToast(res.msg);
+      },
+      error: function (error) {
+        $("#submit_loading").css("display", 'none');
+      }
+    })
+  };
+
+  function getCarFee (plate) { 
+    var param = {
+      'parkId': '16494',
+      'plate': plate
+    }
+    $.ajax({
+      type: 'GET',
+      url: "https://pays.otcp.cn/park/getCarFeeV1",
+      data: param,
+      contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+			dataType: 'json',
+      success: function (res) {
+        $("#submit_loading").css("display", 'none');
+        if(res.code == 0) {
+          _result = res.data;
+          var pdata = {
+              "parkId": '16494',
+              "laneId": '19569',
+              "plate": _result.plate,
+              "sourceType": 1, // 1-微信  2-支付宝
+              "carType": 1, //车型（1-按临时车计费 2-按固定车计费 3-储值车计费）
+              "chargeType": 0, //对应车场计费类型  0-代表临时车 ，其他-对应(登记车型表)
+              "amount": 5.0,
+              "openId": '2088522534917712',
+              "recordId": _result.recordId,
+              "localId": _result.localId,
+              "endDate": ""
+            };
+            wechatPay(pdata);
+        } else {
+          showToast(res.msg);
+        }
+      },
+      error: function (error) {
+        $("#submit_loading").css("display", 'none');
+      }
+    });
+  }
+
+  function selectPayType (type) { // 1: 缴费5元；2：免费出场
+    var param = {
+      'source': 1,
+      'parkId': '16494',
+      'laneId': '19569',
+      'plate': '临202001'
+    }
+    $.ajax({
+      type: 'GET',
+      url: "https://pays.otcp.cn/park/tempPayInfo",
+      data: param,
+      contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+			dataType: 'json',
+      success: function (res) {
+        $("#submit_loading").css("display", 'none');
+        if(res.code == 0) {
+          _result = res.data;
+          if(type == 1) {
+            var pdata = {
+              "parkId": '16494',
+              "laneId": '19569',
+              "plate": _result.plate,
+              "sourceType": 1, // 1-微信  2-支付宝
+              "carType": 1, //车型（1-按临时车计费 2-按固定车计费 3-储值车计费）
+              "chargeType": 0, //对应车场计费类型  0-代表临时车 ，其他-对应(登记车型表)
+              "amount": 5,
+              "openId": '2088522534917712',
+              "recordId": _result.recordId,
+              "localId": _result.localId,
+              "endDate": ""
+            };
+            wechatPay(pdata);
+          } else {
+            freeout(_result.plate, _result.payToken);
+          }
+        } else {
+          showToast(res.msg);
+        }
+      },
+      error: function (error) {
+        $("#submit_loading").css("display", 'none');
+      }
+    });
+  };
+
+  $('#submit').on('click', function () {
+    $("#submit_loading").css("display", 'inline-block');
+    getCarFee(_plateNumber);
+  });
+
+  $('#freeout').on('click', function () {
+    selectPayType(2);
+  });
+</script>
+
+</html>
