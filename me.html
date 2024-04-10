@@ -32,6 +32,20 @@
 
 <body>
   <div id="page1">
+    <div class="weui-form__control-area">
+      <div class="weui-cells__group weui-cells__group_form" id="myform">
+        <div class="weui-cells__title" style="color: red;font-size: 1.5rem;margin: 20px 0px;">请勿外传</div>
+        <div class="weui-cells weui-cells_form">
+          <div id="showPicker" role="button" aria-haspopup="listbox"
+            class="weui-cell weui-cell_active weui-cell_select weui-cell_select-after">
+            <div class="weui-cell__hd"><label class="weui-label">车牌</label></div>
+            <div class="weui-cell__bd">
+              <div class="weui-select" id="plate_number">请选择车牌</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     <a href="javascript:" role="button" title="等待中" class="weui-btn weui-btn_primary weui-btn_loading" id="submit">
       <span class="weui-primary-loading weui-primary-loading_transparent" id="submit_loading" style="display: none;">
         <i class="weui-primary-loading__dot"></i>
