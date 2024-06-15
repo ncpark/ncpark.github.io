@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="content-type" content="text/html; charset=utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1">
+		<title>web获取设置和切换摄像头</title>
+		<style>
+			body,div{
+				margin: 0;
+				padding: 0;
+			}
+			#box {
+				width: 100%;
+			}
+			#video_bind,
+			#canvas_bind {
+				width: 100%;
+				height: 100%;
+				object-fit: cover;
+			}
+
+
+			#canvas_bind {
+				position: absolute;
+				top: 0;
+				z-index: 2;
+				/* z-index: -1; */
+			}
+
+			.tip-box {
+				align-content: center;
+				font-size: 12px;
+			}
+		</style>
+	</head>
+	<body>
+	<div id="box">
+		<video width="300" height="300" id="video_bind" autoplay playsinline webkit-playsinline="true">
+		</video>
+		<div class="tip-box text-center"></div>
+		<canvas id="canvas_bind"></canvas>
+	</div>
+	</body>
+	<script src="./js/tracking-min.js"></script>
+	<script src="./js/face-min.js"></script>
+	<script type="text/javascript">
+		var tipFlag = true // 是否检测
+		var faceflag = true // 是否进行拍照
+		var informationTitle = document.querySelector(".tip-box") //人脸提示
+		// 获取video、canvas实例
+		var facevideo = document.getElementById('video_bind');
+		var facecanvas = document.getElementById('canvas_bind');
+		facecanvas.width = facecanvas.clientWidth;
+		facecanvas.height = facecanvas.clientHeight;
+		
+		var videoWidth = videoHeight = 0
+		facevideo.addEventListener('canplay', function() {
+			videoWidth = this.videoWidth;
+			videoHeight = this.videoHeight;
+		});
+
+		var facecontext = facecanvas.getContext('2d');
+		var tracker = new tracking.ObjectTracker('face');
+		// 每次打开弹框先清除canvas没拍的照片
+		facecontext.clearRect(0, 0, facecanvas.width, facecanvas.height);
+
+		if (navigator.mediaDevices === undefined) {
+			navigator.mediaDevices = {}
+		}
+		if (navigator.mediaDevices.getUserMedia === undefined) {
+			navigator.mediaDevices.getUserMedia = function(constraints) {
+				var getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+				if (!getUserMedia) {
+					return Promise.reject(new Error("getUserMedia is not implemented in this browser"));
+				}
+				return new Promise(function(resolve, reject) {
+					getUserMedia.call(navigator, constraints, resolve, reject);
+				})
+			}
+		}
+
+		navigator.mediaDevices.getUserMedia({
+			audio: false,
+			//打开摄像头方法1：
+			video: {
+				facingMode: "user"
+			}
+
+		//打开摄像头方法2：
+	//	video: {
+      //      deviceId: 		"77604ab12bb8b7cf337c4069da4e701d3786adb8a4115436d0aef1792175c289"}
+
+		}).then(function(stream) {
+			// 使用监听人脸的包
+			tracker.setInitialScale(4);
+			tracker.setStepSize(2);
+			tracker.setEdgesDensity(0.1);
+
+			//打开摄像头方法1(这里有个问题，非手机端他只会打开默认的摄像头)
+			var tra = tracking.track('#video_bind', tracker, {
+				camera: true
+			});
+			
+			//打开摄像头方法2:(上面的video要改，参数哪里来，看代码参考2)
+		// facevideo.srcObject = stream;
+       // facevideo.play();
+      //  var tra = tracking.track('#video_bind', tracker);
+
+			var timer = null;
+			// 创建监听 每帧都会触发
+			tracker.on('track', function(event) {
+				if (!tipFlag) {
+					facecontext.clearRect(0, 0, facecanvas.width, facecanvas.height);
+					if (event.data.length === 0) {
+						//未检测到人脸
+						if (!faceflag && !timer) {
+							timer = setTimeout(() => {
+								informationTitle.innerHTML = '未检测到人脸'
+							}, 500)
+						}
+					} else if (event.data.length === 1) { // 长度为多少代表检测到几张人脸
+						window.clearTimeout(timer);
+						timer = null;
+						informationTitle.innerHTML = '请将脸部置于屏幕中央';
+						//检测到一张人脸
+						if (!tipFlag) {
+							// 给检测到的人脸绘制矩形
+							event.data.forEach(function(rect) {
+								facecontext.strokeStyle = '#a64ceb';
+								facecontext.strokeRect(rect.x, rect.y, rect.width, rect.height);
+							});
+							let rect = event.data[0];
+							//判断脸部是否在屏幕中间
+							if (!faceflag && rect.x > facevideo.clientWidth * 0.3 && rect.x < facevideo
+								.clientWidth * 0.7) { // 检测到人脸进行拍照，延迟0.5秒
+								informationTitle.innerHTML = '识别中，请勿乱动~';
+								faceflag = true;
+								tipFlag = true;
+								setTimeout(() => {
+									tackPhoto() // 拍照
+								}, 500);
+							}
+
+						}
+					} else {
+						//检测到多张人脸
+						if (!faceflag) {
+							informationTitle.innerHTML = '只可一人进行人脸识别！'
+						}
+					}
+				}
+			});
+
+			function tackPhoto() {
+				// 为什么调用getObjectFitSize，因为摄像头获取的图片和绘制的图片大小和区域可能不一致
+				// 所以需要把人脸置于屏幕中间，绘制中间部分图片,如果不需要直接调用第二种方式	
+				const {
+					sx,
+					sy,
+					swidth,
+					sheight,
+					x,
+					y,
+					width,
+					height
+				} = getObjectFitSize('cover', facevideo.clientWidth, facevideo.clientHeight, videoWidth, videoHeight)
+				facecontext.drawImage(facevideo, sx, sy, swidth, sheight, x, y, width, height);
+				// 第二种方式	
+				// facecontext.drawImage(facevideo, 0, 0, facevideo.clientWidth, facevideo.clientHeight);
+				var snapData = facecanvas.toDataURL('image/png');
+				var imgSrc = "data:image/png;" + snapData;
+				// document.querySelector("img").src = imgSrc;
+
+				sessionStorage.setItem("faceImage", imgSrc);
+				// history.go(-1);
+				history.back()
+				facevideo.srcObject.getTracks().forEach(track => track.stop());
+				// 取消监听
+				tra.stop();
+			}
+
+		}).catch(function(err) {
+			informationTitle.innerHTML = '打开摄像头失败'
+		})
+
+		/**
+		 * 计算图片裁剪或者摆放位置
+		 * @param {*} type  contain, cover 暂时只兼容这两个模式
+		 * @param {*} containerWidth  容器宽度
+		 * @param {*} containerHeight  容器高度
+		 * @param {*} imgWidth   图片宽度
+		 * @param {*} imgHeight  图片高度
+		 * @return {*} canvas drawImage的所有入参
+		 */
+		function getObjectFitSize(
+			type = "cover",
+			containerWidth,
+			containerHeight,
+			imgWidth,
+			imgHeight
+		) {
+			let radio = 1, // 容器与图片的比例
+				sx = 0, // 开始剪切的 x 坐标位置。
+				sy = 0, // 开始剪切的 y 坐标位置。
+				swidth = imgWidth, // 被剪切图像的宽度。
+				sheight = imgHeight, // 被剪切图像的高度。
+				x = 0, // 在画布上放置图像的 x 坐标位置。
+				y = 0, // 在画布上放置图像的 y 坐标位置。
+				width = containerWidth, // 要使用的图像的宽度（伸展或缩小图像）。
+				height = containerHeight; // 要使用的图像的高度（伸展或缩小图像）。
+			let cWHRatio = containerWidth / containerHeight;
+			let iWHRatio = imgWidth / imgHeight;
+			if (type === "cover") {
+				// cover模式，需要裁剪
+				if (iWHRatio >= cWHRatio) {
+					// 横图，高先匹配，裁剪宽度
+					radio = containerHeight / imgHeight;
+					sx = (imgWidth - containerWidth / radio) / 2;
+					swidth = containerWidth / radio;
+					sheight = imgHeight;
+				} else {
+					// 竖图，宽先匹配，裁剪高度
+					radio = containerWidth / imgWidth;
+					sy = (imgHeight - containerHeight / radio) / 2;
+					swidth = imgWidth;
+					sheight = containerHeight / radio;
+				}
+			} else if (type === "contain") {
+				if (iWHRatio >= cWHRatio) {
+					// 横图，宽先匹配，高度自适应
+					radio = containerWidth / imgWidth;
+					y = (containerHeight - imgHeight * radio) / 2;
+					height = imgHeight * radio;
+				} else {
+					// 竖图，高先匹配，宽度自适应
+					radio = containerHeight / imgHeight;
+					x = (containerWidth - imgWidth * radio) / 2;
+					width = imgWidth * radio;
+				}
+			}
+			return {
+				sx,
+				sy,
+				swidth,
+				sheight,
+				x,
+				y,
+				width,
+				height,
+			};
+		}
+	</script>
+</html>
